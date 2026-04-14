@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mastic Beach — Point Marker Tool</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📍</text></svg>">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; font-family: 'Segoe UI', Arial, sans-serif; }
+    #map { width: 100%; height: 100%; }
+
+    /* ── Top bar ── */
+    .toolbar {
+      position: absolute; top: 0; left: 0; right: 0; z-index: 1000;
+      background: rgba(255,255,255,0.97); border-bottom: 3px solid #2563eb;
+      padding: 12px 20px; display: flex; align-items: center; gap: 14px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    }
+    .toolbar h1 {
+      font-size: 18px; color: #1e3a5f; margin-right: auto; white-space: nowrap;
+    }
+    .point-count {
+      font-size: 15px; color: #475569; font-weight: 700;
+      padding: 8px 14px; background: #f1f5f9; border-radius: 8px;
+    }
+
+    /* Step buttons */
+    .step-btn {
+      position: relative;
+      padding: 12px 22px; border-radius: 10px; border: none;
+      font-size: 16px; font-weight: 700; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 8px;
+      transition: background 0.2s;
+    }
+    .btn-add       { background: #2563eb; color: #fff; }
+    .btn-add:hover { background: #1d4ed8; }
+    .btn-add.active { background: #16a34a; }
+    .btn-export       { background: #0d9488; color: #fff; }
+    .btn-export:hover { background: #0f766e; }
+
+    /* Small import link */
+    .import-link {
+      position: absolute; bottom: 12px; right: 16px; z-index: 1000;
+      background: rgba(255,255,255,0.9); padding: 6px 12px;
+      border-radius: 6px; font-size: 12px; color: #64748b;
+      cursor: pointer; border: 1px solid #cbd5e1;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .import-link:hover { background: #f1f5f9; color: #334155; }
+    .import-link input { display: none; }
+
+    /* ── Tutorial overlay ── */
+    .tutorial-overlay {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 2000; background: rgba(0,0,0,0.55);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .tutorial-card {
+      background: #fff; border-radius: 16px; padding: 36px 44px;
+      max-width: 480px; width: 90%; text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .tutorial-card h2 { font-size: 22px; color: #1e3a5f; margin-bottom: 24px; }
+    .tutorial-steps { text-align: left; margin-bottom: 28px; }
+    .tutorial-step {
+      display: flex; align-items: flex-start; gap: 14px;
+      margin-bottom: 18px;
+    }
+    .step-number {
+      flex-shrink: 0; width: 36px; height: 36px;
+      background: #2563eb; color: #fff; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 800;
+    }
+    .step-number.green { background: #0d9488; }
+    .step-number.red { background: #dc2626; }
+    .step-text { font-size: 16px; color: #334155; line-height: 1.5; padding-top: 5px; }
+    .step-text strong { color: #1e3a5f; }
+    .tutorial-start {
+      padding: 14px 40px; border-radius: 10px; border: none;
+      background: #2563eb; color: #fff; font-size: 17px;
+      font-weight: 700; cursor: pointer;
+    }
+    .tutorial-start:hover { background: #1d4ed8; }
+
+    /* ── Step badges on buttons ── */
+    .step-badge {
+      position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+      background: #f59e0b; color: #fff; font-size: 11px;
+      font-weight: 800; padding: 2px 10px; border-radius: 10px;
+      white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      animation: pulse-badge 2s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes pulse-badge {
+      0%, 100% { transform: translateX(-50%) scale(1); }
+      50% { transform: translateX(-50%) scale(1.1); }
+    }
+
+    /* ── Bottom instructions bar ── */
+    .instructions-bar {
+      position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
+      z-index: 1000; background: rgba(37,99,235,0.92); color: #fff;
+      padding: 14px 28px; border-radius: 12px; font-size: 17px;
+      font-weight: 600; pointer-events: none;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+      transition: opacity 0.3s; text-align: center;
+    }
+
+    /* ── Popup styling ── */
+    .remove-popup { text-align: center; min-width: 170px; }
+    .remove-popup .coords {
+      font-size: 13px; color: #64748b; margin-bottom: 10px;
+      font-family: monospace;
+    }
+    .remove-popup button {
+      padding: 10px 24px; border-radius: 8px; border: none;
+      background: #dc2626; color: #fff; font-size: 15px;
+      font-weight: 700; cursor: pointer; width: 100%;
+    }
+    .remove-popup button:hover { background: #b91c1c; }
+
+    /* Leaflet layer control */
+    .leaflet-control-layers label { font-size: 14px !important; padding: 3px 0; }
+    .leaflet-control-layers { padding: 8px 14px !important; border-radius: 8px !important; }
+  </style>
+</head>
+<body>
+
+  <!-- Tutorial overlay -->
+  <div class="tutorial-overlay" id="tutorial">
+    <div class="tutorial-card">
+      <h2>📍 How to Use This Tool</h2>
+      <div class="tutorial-steps">
+        <div class="tutorial-step">
+          <div class="step-number">1</div>
+          <div class="step-text">Click <strong>➕ Add Point</strong> in the top bar, then click anywhere on the map to place markers.</div>
+        </div>
+        <div class="tutorial-step">
+          <div class="step-number red">✕</div>
+          <div class="step-text">To <strong>remove</strong> a point, click on it and press the red <strong>🗑️ Remove</strong> button.</div>
+        </div>
+        <div class="tutorial-step">
+          <div class="step-number green">2</div>
+          <div class="step-text">When finished, click <strong>💾 Export CSV</strong> to save all your points as a file.</div>
+        </div>
+      </div>
+      <button class="tutorial-start" onclick="closeTutorial()">Got it — Let's Start!</button>
+    </div>
+  </div>
+
+  <!-- Top toolbar -->
+  <div class="toolbar">
+    <h1>📍 Mastic Beach</h1>
+    <span class="point-count" id="pointCount">0 points</span>
+
+    <button class="step-btn btn-add" id="btnAdd" onclick="toggleAddMode()">
+      <span class="step-badge" id="badge1">STEP 1 ↓</span>
+      ➕ Add Point
+    </button>
+
+    <button class="step-btn btn-export" onclick="exportCSV()">
+      <span class="step-badge" id="badge2" style="background:#0d9488;">STEP 2 ↓</span>
+      💾 Export CSV
+    </button>
+  </div>
+
+  <!-- Small import (bottom-right) -->
+  <label class="import-link" title="Import a previously exported CSV file">
+    📂 Import CSV
+    <input type="file" accept=".csv" onchange="importCSV(event)">
+  </label>
+
+  <!-- Map -->
+  <div id="map"></div>
+
+  <!-- Instructions bar -->
+  <div class="instructions-bar" id="instructions" style="opacity:0;">
+    👆 Click anywhere on the map to place a point
+  </div>
+
+  <script>
+    // ── State ──
+    let points = [];
+    let addMode = false;
+    let nextId = 1;
+
+    // ── Tutorial ──
+    function closeTutorial() {
+      document.getElementById('tutorial').style.display = 'none';
+    }
+
+    // ── Map ──
+    const map = L.map('map', { zoomControl: true }).setView([40.761, -72.848], 14);
+
+    const street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap',
+      maxZoom: 20,
+    });
+    const aerial = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '&copy; Esri',
+      maxZoom: 20,
+    });
+    street.addTo(map);
+    L.control.layers(
+      { "🗺️  Street View": street, "🛰️  Aerial View": aerial },
+      null,
+      { position: 'topright' }
+    ).addTo(map);
+
+    // ── Hide step badges after first interaction ──
+    function hideBadges() {
+      var b1 = document.getElementById('badge1');
+      var b2 = document.getElementById('badge2');
+      if (b1) b1.style.display = 'none';
+      if (b2) b2.style.display = 'none';
+    }
+
+    // ── Add mode ──
+    function toggleAddMode() {
+      hideBadges();
+      addMode = !addMode;
+      var btn = document.getElementById('btnAdd');
+      var inst = document.getElementById('instructions');
+      if (addMode) {
+        btn.classList.add('active');
+        btn.innerHTML = '✅ Done Adding';
+        inst.style.opacity = '1';
+        map.getContainer().style.cursor = 'crosshair';
+      } else {
+        btn.classList.remove('active');
+        btn.innerHTML = '➕ Add Point';
+        inst.style.opacity = '0';
+        map.getContainer().style.cursor = '';
+      }
+    }
+
+    // ── Map click ──
+    map.on('click', function(e) {
+      if (!addMode) return;
+      addPoint(e.latlng.lat, e.latlng.lng);
+    });
+
+    // ── Add point ──
+    function addPoint(lat, lng) {
+      var id = nextId++;
+      var marker = L.marker([lat, lng]).addTo(map);
+      var pt = { id: id, lat: lat, lng: lng, marker: marker };
+      points.push(pt);
+      marker.bindPopup(makePopupHTML(pt));
+      marker.openPopup();
+      updateCount();
+    }
+
+    function makePopupHTML(pt) {
+      return '<div class="remove-popup">' +
+        '<div class="coords">' + pt.lat.toFixed(6) + ', ' + pt.lng.toFixed(6) + '</div>' +
+        '<button onclick="removePoint(' + pt.id + ')">🗑️ Remove this point</button>' +
+        '</div>';
+    }
+
+    // ── Remove point ──
+    function removePoint(id) {
+      var idx = points.findIndex(function(p) { return p.id === id; });
+      if (idx === -1) return;
+      map.closePopup();
+      map.removeLayer(points[idx].marker);
+      points.splice(idx, 1);
+      updateCount();
+    }
+
+    // ── Counter ──
+    function updateCount() {
+      var n = points.length;
+      document.getElementById('pointCount').textContent = n + (n === 1 ? ' point' : ' points');
+    }
+
+    // ── Export ──
+    function exportCSV() {
+      hideBadges();
+      if (points.length === 0) {
+        alert('No points to export yet!\n\nClick "Add Point" first, then click on the map.');
+        return;
+      }
+      var csv = 'id,latitude,longitude\n';
+      for (var i = 0; i < points.length; i++) {
+        csv += points[i].id + ',' + points[i].lat.toFixed(6) + ',' + points[i].lng.toFixed(6) + '\n';
+      }
+      var blob = new Blob([csv], { type: 'text/csv' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'mastic_beach_points.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // ── Import ──
+    function importCSV(event) {
+      var file = event.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var lines = e.target.result.trim().split('\n');
+        if (lines.length < 2) { alert('CSV file appears empty.'); return; }
+        var header = lines[0].toLowerCase().split(',').map(function(h) { return h.trim(); });
+        var latIdx = header.indexOf('latitude');
+        if (latIdx === -1) latIdx = header.indexOf('lat');
+        var lngIdx = header.indexOf('longitude');
+        if (lngIdx === -1) lngIdx = header.indexOf('lng');
+        if (lngIdx === -1) lngIdx = header.indexOf('lon');
+        if (latIdx === -1 || lngIdx === -1) {
+          alert('CSV must have "latitude" and "longitude" columns.');
+          return;
+        }
+        // Clear existing
+        for (var i = 0; i < points.length; i++) map.removeLayer(points[i].marker);
+        points = [];
+        nextId = 1;
+
+        var imported = 0;
+        for (var i = 1; i < lines.length; i++) {
+          var cols = lines[i].split(',').map(function(c) { return c.trim(); });
+          var lat = parseFloat(cols[latIdx]);
+          var lng = parseFloat(cols[lngIdx]);
+          if (!isNaN(lat) && !isNaN(lng)) { addPoint(lat, lng); imported++; }
+        }
+        alert('Imported ' + imported + ' points.');
+        if (points.length > 0) {
+          var group = L.featureGroup(points.map(function(p) { return p.marker; }));
+          map.fitBounds(group.getBounds().pad(0.1));
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+  </script>
+</body>
+</html>
