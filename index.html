@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mastic Beach — Point Marker Tool</title>
+  <title>Mastic Beach — Elevated Homes Marker</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📍</text></svg>">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -20,7 +20,7 @@
       box-shadow: 0 2px 12px rgba(0,0,0,0.15);
     }
     .toolbar h1 {
-      font-size: 18px; color: #1e3a5f; margin-right: auto; white-space: nowrap;
+      font-size: 18px; color: #1e3a5f; white-space: nowrap;
     }
     .point-count {
       font-size: 15px; color: #475569; font-weight: 700;
@@ -133,19 +133,20 @@
   <!-- Tutorial overlay -->
   <div class="tutorial-overlay" id="tutorial">
     <div class="tutorial-card">
-      <h2>📍 How to Use This Tool</h2>
+      <h2>📍 Hi Maura!</h2>
+      <p style="font-size:15px;color:#475569;margin-bottom:20px;line-height:1.6;">We need your help identifying <strong>homes that have been elevated</strong> in Mastic Beach. You know the area best! Here's how:</p>
       <div class="tutorial-steps">
         <div class="tutorial-step">
           <div class="step-number">1</div>
-          <div class="step-text">Click <strong>➕ Add Point</strong> in the top bar, then click anywhere on the map to place markers.</div>
+          <div class="step-text">Click <strong>➕ Add Point</strong> at the top, then click on the map on each <strong>elevated home</strong> you know of. You can switch to aerial view in the top-right corner to see rooftops.</div>
         </div>
         <div class="tutorial-step">
           <div class="step-number red">✕</div>
-          <div class="step-text">To <strong>remove</strong> a point, click on it and press the red <strong>🗑️ Remove</strong> button.</div>
+          <div class="step-text">Placed a point in the wrong spot? Just click on it and press <strong>🗑️ Remove</strong>. No worries!</div>
         </div>
         <div class="tutorial-step">
           <div class="step-number green">2</div>
-          <div class="step-text">When finished, click <strong>💾 Export CSV</strong> to save all your points as a file.</div>
+          <div class="step-text">When you're done, click <strong>💾 Export CSV</strong>. A file will download to your computer. <strong>Email that file back to Erfan</strong> and you're all set!</div>
         </div>
       </div>
       <button class="tutorial-start" onclick="closeTutorial()">Got it — Let's Start!</button>
@@ -154,18 +155,20 @@
 
   <!-- Top toolbar -->
   <div class="toolbar">
-    <h1>📍 Mastic Beach</h1>
-    <span class="point-count" id="pointCount">0 points</span>
+    <h1>📍 Mastic Beach — Elevated Homes</h1>
+    <div style="flex:1;display:flex;justify-content:center;align-items:center;gap:14px;">
+      <span class="point-count" id="pointCount">0 points</span>
 
-    <button class="step-btn btn-add" id="btnAdd" onclick="toggleAddMode()">
-      <span class="step-badge" id="badge1">STEP 1 ↓</span>
-      ➕ Add Point
-    </button>
+      <button class="step-btn btn-add" id="btnAdd" onclick="toggleAddMode()">
+        <span class="step-badge" id="badge1">STEP 1 ↓</span>
+        ➕ Add Point
+      </button>
 
-    <button class="step-btn btn-export" onclick="exportCSV()">
-      <span class="step-badge" id="badge2" style="background:#0d9488;">STEP 2 ↓</span>
-      💾 Export CSV
-    </button>
+      <button class="step-btn btn-export" onclick="exportCSV()">
+        <span class="step-badge" id="badge2" style="background:#0d9488;">STEP 2 ↓</span>
+        💾 Export CSV
+      </button>
+    </div>
   </div>
 
   <!-- Small import (bottom-right) -->
@@ -179,7 +182,7 @@
 
   <!-- Instructions bar -->
   <div class="instructions-bar" id="instructions" style="opacity:0;">
-    👆 Click anywhere on the map to place a point
+    👆 Click on an elevated home to mark it
   </div>
 
   <script>
@@ -208,7 +211,7 @@
     L.control.layers(
       { "🗺️  Street View": street, "🛰️  Aerial View": aerial },
       null,
-      { position: 'topright' }
+      { position: 'topright', collapsed: false }
     ).addTo(map);
 
     // ── Hide step badges after first interaction ──
@@ -282,7 +285,7 @@
     function exportCSV() {
       hideBadges();
       if (points.length === 0) {
-        alert('No points to export yet!\n\nClick "Add Point" first, then click on the map.');
+        alert('No homes marked yet!\n\nClick "Add Point" first, then click on elevated homes on the map.');
         return;
       }
       var csv = 'id,latitude,longitude\n';
@@ -293,7 +296,7 @@
       var url = URL.createObjectURL(blob);
       var a = document.createElement('a');
       a.href = url;
-      a.download = 'mastic_beach_points.csv';
+      a.download = 'elevated_homes_mastic_beach.csv';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
